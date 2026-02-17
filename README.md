@@ -244,6 +244,74 @@ curl -X POST "http://localhost:8000/v1/chat/completions" \
   }'
 ```
 
+### Flow 独立打码接口（固定 browser provider）
+
+#### 小白版：你只要做 4 步
+
+1. 打开 `config/setting.toml`，在 `[captcha]` 下填好下面 4 个配置（尤其是 `flow_captcha_service_api_key` 不能空）。
+2. 重启服务（Docker 用 `docker-compose restart`，本地运行就重启 Python 进程）。
+3. 准备一个 `project_id`（或直接给 `website_url`）。
+4. 用下面的 `curl` 调一次接口，看能不能拿到 `token`。
+
+```bash
+curl -X POST "http://localhost:8000/v1/captcha/flow-recaptcha-v3-task-proxyless-m1" \
+  -H "Authorization: Bearer han1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": "524c77fb-eb0c-433e-8b6c-f4561e980992",
+    "page_action": "IMAGE_GENERATION"
+  }'
+```
+
+#### 请求参数说明
+
+- `project_id`：Flow 项目 ID（和 `website_url` 二选一）
+- `website_url`：Flow 页面 URL（可选）
+- `page_action`：可选值：
+  - `IMAGE_GENERATION`（默认）
+  - `VIDEO_GENERATION`
+
+#### `config/setting.toml` 需要新增/确认的配置
+
+在 `[captcha]` 下确认：
+
+- `flow_captcha_service_base_url = "http://223.167.72.194:35201"`
+- `flow_captcha_service_solve_path = "/api/v1/captcha/solve"`
+- `flow_captcha_service_api_key = "<你的服务密钥>"`（必填）
+- `flow_captcha_service_timeout_seconds = 120`
+
+#### 成功返回示例
+
+```json
+{
+  "name": "Flow-RecaptchaV3TaskProxylessM1",
+  "object": "captcha.solution",
+  "provider": "browser",
+  "page_action": "IMAGE_GENERATION",
+  "token": "0cAFcWeA....",
+  "duration_ms": 60201,
+  "browser_id": 0,
+  "task_type": "RecaptchaV3TaskProxylessM1",
+  "pricing": {
+    "currency": "CNY",
+    "price_per_1000_tasks": 15.0,
+    "price_per_task": 0.015,
+    "points_per_task": 15.0
+  }
+}
+```
+
+#### 常见报错（小白排查）
+
+- `flow captcha service api key is not configured`
+  - 说明你没填 `flow_captcha_service_api_key`。
+- `project_id or website_url is required`
+  - 说明你请求里两个都没传。
+- `invalid page_action`
+  - 只支持 `IMAGE_GENERATION` / `VIDEO_GENERATION`。
+- `captcha_upstream_error`
+  - 说明上游打码服务报错，优先检查：服务地址、路径、API key、网络连通性。
+
 ---
 
 ## 📄 许可证

@@ -290,6 +290,26 @@ class Config:
             self._config["captcha"] = {}
         self._config["captcha"]["capsolver_base_url"] = base_url
 
+    @property
+    def flow_captcha_service_base_url(self) -> str:
+        """Get Flow captcha service base URL"""
+        return self._config.get("captcha", {}).get("flow_captcha_service_base_url", "http://223.167.72.194:35201")
+
+    @property
+    def flow_captcha_service_solve_path(self) -> str:
+        """Get Flow captcha service solve path"""
+        return self._config.get("captcha", {}).get("flow_captcha_service_solve_path", "/api/v1/captcha/solve")
+
+    @property
+    def flow_captcha_service_api_key(self) -> str:
+        """Get Flow captcha service API key"""
+        return self._config.get("captcha", {}).get("flow_captcha_service_api_key", "")
+
+    @property
+    def flow_captcha_service_timeout_seconds(self) -> int:
+        """Get Flow captcha service timeout in seconds"""
+        return int(self._config.get("captcha", {}).get("flow_captcha_service_timeout_seconds", 120))
+
 
 # Global config instance
 config = Config()
