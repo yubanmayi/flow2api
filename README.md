@@ -244,6 +244,27 @@ curl -X POST "http://localhost:8000/v1/chat/completions" \
   }'
 ```
 
+### Flow 独立打码接口（固定 browser provider）
+
+```bash
+curl -X POST "http://localhost:8000/v1/captcha/flow-recaptcha-v3-task-proxyless-m1" \
+  -H "Authorization: Bearer han1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": "524c77fb-eb0c-433e-8b6c-f4561e980992",
+    "page_action": "IMAGE_GENERATION"
+  }'
+```
+
+> `project_id` 与 `website_url` 二选一；`page_action` 支持 `IMAGE_GENERATION`（默认）和 `VIDEO_GENERATION`。
+
+`config/setting.toml` 的 `[captcha]` 中新增运维项：
+
+- `flow_captcha_service_base_url`（默认 `http://223.167.72.194:35201`）
+- `flow_captcha_service_solve_path`（默认 `/api/v1/captcha/solve`）
+- `flow_captcha_service_api_key`（必填）
+- `flow_captcha_service_timeout_seconds`（默认 `120`）
+
 ---
 
 ## 📄 许可证

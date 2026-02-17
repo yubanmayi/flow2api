@@ -7,16 +7,24 @@ import re
 import json
 import time
 from urllib.parse import urlparse
+from pydantic import BaseModel
 from curl_cffi.requests import AsyncSession
 from ..core.auth import verify_api_key_header
 from ..core.models import ChatCompletionRequest
 from ..services.generation_handler import GenerationHandler, MODEL_CONFIG
 from ..core.logger import debug_logger
+from ..core.config import config
 
 router = APIRouter()
 
 # Dependency injection will be set up in main.py
 generation_handler: GenerationHandler = None
+
+
+class FlowRecaptchaV3TaskProxylessM1Request(BaseModel):
+    project_id: Optional[str] = None
+    website_url: Optional[str] = None
+    page_action: str = "IMAGE_GENERATION"
 
 
 def set_generation_handler(handler: GenerationHandler):
@@ -223,3 +231,132 @@ async def create_chat_completion(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/v1/captcha/flow-recaptcha-v3-task-proxyless-m1")
+async def solve_flow_recaptcha_v3_task_proxyless_m1(
+    request: FlowRecaptchaV3TaskProxylessM1Request,
+    api_key: str = Depends(verify_api_key_header)
+):
+    """Flow browser captcha service unified endpoint (provider=browser)."""
+    _ = api_key
+
+    page_action = request.page_action or "IMAGE_GENERATION"
+    if page_action not in ["IMAGE_GENERATION", "VIDEO_GENERATION"]:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "message": "invalid page_action, allowed values: IMAGE_GENERATION, VIDEO_GENERATION",
+                    "type": "invalid_request_error",
+                    "param": "page_action",
+                    "code": "invalid_page_action"
+                }
+            }
+        )
+
+    if not request.project_id and not request.website_url:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "message": "project_id or website_url is required",
+                    "type": "invalid_request_error",
+                    "param": "project_id",
+                    "code": "invalid_request"
+                }
+            }
+        )
+
+    website_url = request.website_url
+    if not website_url and request.project_id:
+        website_url = f"https://labs.google/fx/tools/flow/project/{request.project_id}"
+
+    base_url = config.flow_captcha_service_base_url.rstrip("/")
+    solve_path = config.flow_captcha_service_solve_path
+    if not solve_path.startswith("/"):
+        solve_path = f"/{solve_path}"
+    upstream_url = f"{base_url}{solve_path}"
+
+    service_api_key = config.flow_captcha_service_api_key
+    if not service_api_key:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "message": "flow captcha service api key is not configured",
+                    "type": "configuration_error",
+                    "param": "FlowCaptchaServiceApiKey",
+                    "code": "captcha_service_not_configured"
+                }
+            }
+        )
+
+    upstream_payload = {
+        "type": "RecaptchaV3TaskProxylessM1",
+        "websiteURL": website_url,
+        "websiteKey": "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV",
+        "pageAction": page_action
+    }
+
+    start_time = time.time()
+    try:
+        async with AsyncSession() as session:
+            upstream_response = await session.post(
+                upstream_url,
+                json=upstream_payload,
+                headers={"Authorization": f"Bearer {service_api_key}"},
+                timeout=config.flow_captcha_service_timeout_seconds,
+                impersonate="chrome110"
+            )
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        response_json = upstream_response.json()
+        token = (
+            response_json.get("token")
+            or response_json.get("gRecaptchaResponse")
+            or response_json.get("solution", {}).get("gRecaptchaResponse")
+        )
+
+        if upstream_response.status_code >= 400 or not token:
+            error_message = response_json.get("message") or response_json.get("error") or str(response_json)
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "error": {
+                        "message": f"flow captcha service error: {error_message}",
+                        "type": "upstream_error",
+                        "param": "",
+                        "code": "captcha_upstream_error"
+                    }
+                }
+            )
+
+        return {
+            "name": "Flow-RecaptchaV3TaskProxylessM1",
+            "object": "captcha.solution",
+            "provider": "browser",
+            "page_action": page_action,
+            "token": token,
+            "duration_ms": duration_ms,
+            "browser_id": 0,
+            "task_type": "RecaptchaV3TaskProxylessM1",
+            "pricing": {
+                "currency": "CNY",
+                "price_per_1000_tasks": 15.0,
+                "price_per_task": 0.015,
+                "points_per_task": 15.0
+            }
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "message": f"flow captcha service error: {str(e)}",
+                    "type": "upstream_error",
+                    "param": "",
+                    "code": "captcha_upstream_error"
+                }
+            }
+        )
