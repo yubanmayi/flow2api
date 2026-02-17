@@ -46,6 +46,7 @@
                 <button onclick="switchTab('tokens')" id="tabTokens" class="tab-btn border-b-2 border-primary text-sm font-medium py-3 px-1">Token 管理</button>
                 <button onclick="switchTab('settings')" id="tabSettings" class="tab-btn border-b-2 border-transparent text-sm font-medium py-3 px-1">系统配置</button>
                 <button onclick="switchTab('logs')" id="tabLogs" class="tab-btn border-b-2 border-transparent text-sm font-medium py-3 px-1">请求日志</button>
+                <button onclick="switchTab('workbench')" id="tabWorkbench" class="tab-btn border-b-2 border-transparent text-sm font-medium py-3 px-1">批量工作台</button>
             </nav>
         </div>
 
@@ -445,6 +446,54 @@
             </div>
         </div>
 
+        <!-- 批量工作台面板 -->
+        <div id="panelWorkbench" class="hidden space-y-6">
+            <div class="rounded-lg border border-border bg-background p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg font-semibold">批量生成工作台</h3>
+                        <p class="text-xs text-muted-foreground mt-1">每个功能 10 个并发输入框，点击开始后会同时发起任务。</p>
+                    </div>
+                    <div class="text-xs text-muted-foreground">已加载 API Key：<span id="benchApiKeyStatus">未加载</span></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div class="rounded-lg border border-border bg-background p-4">
+                    <h4 class="font-semibold mb-3">文生图（批量 10 条）</h4>
+                    <label class="text-xs text-muted-foreground">模型</label>
+                    <select id="benchT2iModel" class="mt-1 mb-3 flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"></select>
+                    <div id="benchT2iRows" class="space-y-2"></div>
+                    <button onclick="runBatchT2I()" class="mt-3 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 w-full">开始文生图</button>
+                </div>
+
+                <div class="rounded-lg border border-border bg-background p-4">
+                    <h4 class="font-semibold mb-3">图生图（批量 10 条）</h4>
+                    <label class="text-xs text-muted-foreground">模型</label>
+                    <select id="benchI2iModel" class="mt-1 mb-3 flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"></select>
+                    <div id="benchI2iRows" class="space-y-2"></div>
+                    <button onclick="runBatchI2I()" class="mt-3 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 w-full">开始图生图</button>
+                </div>
+
+                <div class="rounded-lg border border-border bg-background p-4">
+                    <h4 class="font-semibold mb-3">生视频（图生视频，批量 10 条）</h4>
+                    <label class="text-xs text-muted-foreground">模型</label>
+                    <select id="benchI2vModel" class="mt-1 mb-3 flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"></select>
+                    <div id="benchI2vRows" class="space-y-2"></div>
+                    <button onclick="runBatchI2V()" class="mt-3 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 w-full">开始生视频</button>
+                </div>
+            </div>
+
+            <div class="rounded-lg border border-border bg-background">
+                <div class="flex items-center justify-between gap-3 p-4 border-b border-border">
+                    <h4 class="font-semibold">批量历史记录</h4>
+                    <button onclick="clearBenchHistory()" class="inline-flex items-center justify-center rounded-md transition-colors hover:bg-red-50 hover:text-red-700 h-8 px-3 text-xs">清空历史</button>
+                </div>
+                <div id="benchHistory" class="p-4 space-y-3 max-h-[420px] overflow-auto"></div>
+            </div>
+        </div>
+
+
         <!-- 请求日志面板 -->
         <div id="panelLogs" class="hidden">
             <div class="rounded-lg border border-border bg-background">
@@ -767,8 +816,27 @@
         closeLogDetailModal=()=>{$('logDetailModal').classList.add('hidden')},
         showToast=(m,t='info')=>{const d=document.createElement('div'),bc={success:'bg-green-600',error:'bg-destructive',info:'bg-primary'};d.className=`fixed bottom-4 right-4 ${bc[t]||bc.info} text-white px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium z-50 animate-slide-up`;d.textContent=m;document.body.appendChild(d);setTimeout(()=>{d.style.opacity='0';d.style.transition='opacity .3s';setTimeout(()=>d.parentNode&&document.body.removeChild(d),300)},2000)},
         logout=()=>{if(!confirm('确定要退出登录吗?'))return;localStorage.removeItem('adminToken');location.href='/login'},
-        switchTab=t=>{const cap=n=>n.charAt(0).toUpperCase()+n.slice(1);['tokens','settings','logs'].forEach(n=>{const active=n===t;$(`panel${cap(n)}`).classList.toggle('hidden',!active);$(`tab${cap(n)}`).classList.toggle('border-primary',active);$(`tab${cap(n)}`).classList.toggle('text-primary',active);$(`tab${cap(n)}`).classList.toggle('border-transparent',!active);$(`tab${cap(n)}`).classList.toggle('text-muted-foreground',!active)});if(t==='settings'){loadAdminConfig();loadProxyConfig();loadCacheConfig();loadGenerationTimeout();loadCaptchaConfig();loadPluginConfig();loadATAutoRefreshConfig()}else if(t==='logs'){loadLogs()}};
-        window.addEventListener('DOMContentLoaded',()=>{checkAuth();refreshTokens();loadATAutoRefreshConfig()});
+        switchTab=t=>{const cap=n=>n.charAt(0).toUpperCase()+n.slice(1);['tokens','settings','logs','workbench'].forEach(n=>{const active=n===t;$(`panel${cap(n)}`).classList.toggle('hidden',!active);$(`tab${cap(n)}`).classList.toggle('border-primary',active);$(`tab${cap(n)}`).classList.toggle('text-primary',active);$(`tab${cap(n)}`).classList.toggle('border-transparent',!active);$(`tab${cap(n)}`).classList.toggle('text-muted-foreground',!active)});if(t==='settings'){loadAdminConfig();loadProxyConfig();loadCacheConfig();loadGenerationTimeout();loadCaptchaConfig();loadPluginConfig();loadATAutoRefreshConfig()}else if(t==='logs'){loadLogs()}else if(t==='workbench'){initWorkbench()}};
+
+        let benchInitialized=false,benchApiKey='';
+        const benchImageModels=['gemini-2.5-flash-image-landscape','gemini-2.5-flash-image-portrait','gemini-3.0-pro-image-landscape','gemini-3.0-pro-image-portrait','imagen-4.0-generate-preview-landscape','imagen-4.0-generate-preview-portrait'],
+              benchVideoModels=['veo_3_1_i2v_s_fast_fl_landscape','veo_3_1_i2v_s_fast_fl_portrait','veo_2_1_fast_d_15_i2v_landscape','veo_2_1_fast_d_15_i2v_portrait','veo_2_0_i2v_landscape','veo_2_0_i2v_portrait'];
+        const benchRows=(container,withFile)=>{const html=[];for(let i=1;i<=10;i++){html.push(`<div class="rounded border border-border p-2"><label class="text-xs text-muted-foreground">#${i} Prompt</label><textarea id="${container}Prompt${i}" class="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs" rows="2" placeholder="输入提示词"></textarea>${withFile?`<input id="${container}File${i}" type="file" accept="image/*" class="mt-2 block w-full text-xs">`:''}<div id="${container}Result${i}" class="mt-2 text-xs text-muted-foreground">待开始</div></div>`)}return html.join('')};
+        const fillSelect=(id,list)=>{$(id).innerHTML=list.map(m=>`<option value="${m}">${m}</option>`).join('')};
+        const fileToDataUrl=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
+        const benchRequest=async payload=>{const r=await fetch('/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${benchApiKey}`},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.error?.message||d?.detail||`HTTP ${r.status}`);return d};
+        const extractUrl=d=>d?.url||d?.data?.[0]?.url||d?.choices?.[0]?.message?.content?.[0]?.url||'';
+        const appendBenchHistory=item=>{const key='flow2api_batch_history';const list=JSON.parse(localStorage.getItem(key)||'[]');list.unshift(item);localStorage.setItem(key,JSON.stringify(list.slice(0,120)));renderBenchHistory()};
+        const renderBenchHistory=()=>{const key='flow2api_batch_history',box=$('benchHistory'),list=JSON.parse(localStorage.getItem(key)||'[]');if(!list.length){box.innerHTML='<p class="text-sm text-muted-foreground">暂无历史记录</p>';return}box.innerHTML=list.map(it=>`<div class="rounded border border-border p-3"><div class="flex items-center justify-between text-xs"><span class="font-medium">${it.type} #${it.index}</span><span class="text-muted-foreground">${new Date(it.time).toLocaleString('zh-CN')}</span></div><p class="text-xs mt-1">模型：${it.model}</p><p class="text-xs mt-1 break-all">Prompt：${it.prompt||'-'}</p>${it.url?`<a href="${it.url}" target="_blank" class="text-blue-600 text-xs break-all">${it.url}</a>`:`<p class="text-red-600 text-xs">失败：${it.error||'未知错误'}</p>`}</div>`).join('')};
+        clearBenchHistory=()=>{localStorage.removeItem('flow2api_batch_history');renderBenchHistory();showToast('已清空批量历史','success')};
+        const loadBenchApiKey=async()=>{const r=await apiRequest('/api/admin/config');if(!r)return;const d=await r.json();benchApiKey=d.api_key||'';$('benchApiKeyStatus').textContent=benchApiKey?`已加载 (${benchApiKey.slice(0,4)}****)`:'未加载'};
+        initWorkbench=async()=>{if(!benchInitialized){fillSelect('benchT2iModel',benchImageModels);fillSelect('benchI2iModel',benchImageModels);fillSelect('benchI2vModel',benchVideoModels);$('benchT2iRows').innerHTML=benchRows('benchT2i',false);$('benchI2iRows').innerHTML=benchRows('benchI2i',true);$('benchI2vRows').innerHTML=benchRows('benchI2v',true);benchInitialized=true}renderBenchHistory();await loadBenchApiKey()};
+        const runBatch=(type,prefix,model,inputType)=>async()=>{if(!benchApiKey){await loadBenchApiKey();if(!benchApiKey)return showToast('未获取到 API Key，请先在系统配置中设置','error')}const selected=$(model).value;const jobs=[];for(let i=1;i<=10;i++){const prompt=$(prefix+`Prompt${i}`).value.trim();const resultEl=$(prefix+`Result${i}`);if(!prompt){resultEl.textContent='已跳过（空提示词）';continue}jobs.push((async()=>{resultEl.textContent='生成中...';try{let content;const fileInput=$(prefix+`File${i}`);if(inputType==='text'){content=prompt}else{const file=fileInput?.files?.[0];if(!file)throw new Error('请上传图片');const dataUrl=await fileToDataUrl(file);content=[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUrl}}]}const data=await benchRequest({model:selected,messages:[{role:'user',content}],stream:false});const url=extractUrl(data);if(!url)throw new Error('未返回可用链接');resultEl.innerHTML=`<a href="${url}" target="_blank" class="text-blue-600 break-all">${url}</a>`;if(type.includes('图')&&!type.includes('视频'))resultEl.innerHTML+=`<img src="${url}" class="mt-2 rounded max-h-24">`;if(type.includes('视频'))resultEl.innerHTML+=`<video src="${url}" controls class="mt-2 rounded max-h-24"></video>`;appendBenchHistory({type,index:i,model:selected,prompt,url,time:Date.now()})}catch(e){resultEl.innerHTML=`<span class="text-red-600">失败：${e.message}</span>`;appendBenchHistory({type,index:i,model:selected,prompt,error:e.message,time:Date.now()})}})())}if(!jobs.length)return showToast('没有可执行的任务','error');await Promise.all(jobs);showToast(`${type}批量任务已完成`,'success')};
+        runBatchT2I=runBatch('文生图','benchT2i','benchT2iModel','text');
+        runBatchI2I=runBatch('图生图','benchI2i','benchI2iModel','image');
+        runBatchI2V=runBatch('生视频','benchI2v','benchI2vModel','image');
+
+        window.addEventListener('DOMContentLoaded',()=>{checkAuth();refreshTokens();loadATAutoRefreshConfig();renderBenchHistory()});
     </script>
 </body>
 </html>
