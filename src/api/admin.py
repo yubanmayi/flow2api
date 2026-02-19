@@ -875,6 +875,9 @@ async def update_captcha_config(
     from ..services.browser_captcha import validate_browser_proxy_url
 
     captcha_method = request.get("captcha_method")
+    valid_methods = {"yescaptcha", "capmonster", "ezcaptcha", "capsolver", "flow_service", "browser", "personal"}
+    if captcha_method is not None and captcha_method not in valid_methods:
+        return {"success": False, "message": f"不支持的打码方式: {captcha_method}"}
     yescaptcha_api_key = request.get("yescaptcha_api_key")
     yescaptcha_base_url = request.get("yescaptcha_base_url")
     capmonster_api_key = request.get("capmonster_api_key")
@@ -883,15 +886,47 @@ async def update_captcha_config(
     ezcaptcha_base_url = request.get("ezcaptcha_base_url")
     capsolver_api_key = request.get("capsolver_api_key")
     capsolver_base_url = request.get("capsolver_base_url")
+    flow_captcha_service_base_url = request.get("flow_captcha_service_base_url")
+    flow_captcha_service_solve_path = request.get("flow_captcha_service_solve_path")
+    flow_captcha_service_api_key = request.get("flow_captcha_service_api_key")
+    flow_timeout_raw = request.get("flow_captcha_service_timeout_seconds", 120)
     browser_proxy_enabled = request.get("browser_proxy_enabled", False)
     browser_proxy_url = request.get("browser_proxy_url", "")
-    browser_count = request.get("browser_count", 1)
+    browser_count_raw = request.get("browser_count", 1)
+
+    try:
+        browser_count = max(1, int(browser_count_raw)) if browser_count_raw is not None else 1
+    except (TypeError, ValueError):
+        return {"success": False, "message": "浏览器数量必须是数字"}
+
+    if browser_count > 20:
+        return {"success": False, "message": "浏览器数量不能超过 20"}
+
+    try:
+        flow_captcha_service_timeout_seconds = int(flow_timeout_raw) if flow_timeout_raw is not None else 120
+    except (TypeError, ValueError):
+        return {"success": False, "message": "FlowCaptcha 超时时间必须是数字"}
+
+    if flow_captcha_service_timeout_seconds <= 0:
+        return {"success": False, "message": "FlowCaptcha 超时时间必须大于 0"}
 
     # 验证浏览器代理URL格式
     if browser_proxy_enabled and browser_proxy_url:
         is_valid, error_msg = validate_browser_proxy_url(browser_proxy_url)
         if not is_valid:
             return {"success": False, "message": error_msg}
+
+    if captcha_method == "flow_service":
+        if not (flow_captcha_service_base_url or "").strip():
+            return {"success": False, "message": "FlowCaptcha 服务地址不能为空"}
+        if not str(flow_captcha_service_base_url).startswith(("http://", "https://")):
+            return {"success": False, "message": "FlowCaptcha 服务地址必须以 http:// 或 https:// 开头"}
+        if not (flow_captcha_service_api_key or "").strip():
+            return {"success": False, "message": "FlowCaptcha 接口密钥不能为空"}
+        if not (flow_captcha_service_solve_path or "").strip():
+            return {"success": False, "message": "FlowCaptcha 打码路径不能为空"}
+        if flow_captcha_service_solve_path and not str(flow_captcha_service_solve_path).startswith("/"):
+            return {"success": False, "message": "FlowCaptcha 打码路径必须以 / 开头"}
 
     await db.update_captcha_config(
         captcha_method=captcha_method,
@@ -903,9 +938,13 @@ async def update_captcha_config(
         ezcaptcha_base_url=ezcaptcha_base_url,
         capsolver_api_key=capsolver_api_key,
         capsolver_base_url=capsolver_base_url,
+        flow_captcha_service_base_url=flow_captcha_service_base_url,
+        flow_captcha_service_solve_path=flow_captcha_service_solve_path,
+        flow_captcha_service_api_key=flow_captcha_service_api_key,
+        flow_captcha_service_timeout_seconds=flow_captcha_service_timeout_seconds,
         browser_proxy_enabled=browser_proxy_enabled,
         browser_proxy_url=browser_proxy_url if browser_proxy_enabled else None,
-        browser_count=max(1, int(browser_count)) if browser_count else 1
+        browser_count=browser_count
     )
 
     # 如果使用 browser 打码，热重载浏览器数量配置
@@ -937,6 +976,10 @@ async def get_captcha_config(token: str = Depends(verify_admin_token)):
         "ezcaptcha_base_url": captcha_config.ezcaptcha_base_url,
         "capsolver_api_key": captcha_config.capsolver_api_key,
         "capsolver_base_url": captcha_config.capsolver_base_url,
+        "flow_captcha_service_base_url": captcha_config.flow_captcha_service_base_url,
+        "flow_captcha_service_solve_path": captcha_config.flow_captcha_service_solve_path,
+        "flow_captcha_service_api_key": captcha_config.flow_captcha_service_api_key,
+        "flow_captcha_service_timeout_seconds": captcha_config.flow_captcha_service_timeout_seconds,
         "browser_proxy_enabled": captcha_config.browser_proxy_enabled,
         "browser_proxy_url": captcha_config.browser_proxy_url or "",
         "browser_count": captcha_config.browser_count

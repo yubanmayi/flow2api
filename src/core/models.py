@@ -147,7 +147,7 @@ class DebugConfig(BaseModel):
 class CaptchaConfig(BaseModel):
     """Captcha configuration"""
     id: int = 1
-    captcha_method: str = "browser"  # yescaptcha, capmonster, ezcaptcha, capsolver 或 browser
+    captcha_method: str = "browser"  # yescaptcha, capmonster, ezcaptcha, capsolver, flow_service, browser 或 personal
     yescaptcha_api_key: str = ""
     yescaptcha_base_url: str = "https://api.yescaptcha.com"
     capmonster_api_key: str = ""
@@ -156,6 +156,10 @@ class CaptchaConfig(BaseModel):
     ezcaptcha_base_url: str = "https://api.ez-captcha.com"
     capsolver_api_key: str = ""
     capsolver_base_url: str = "https://api.capsolver.com"
+    flow_captcha_service_base_url: str = "http://223.167.72.194:35201"
+    flow_captcha_service_solve_path: str = "/api/v1/captcha/solve"
+    flow_captcha_service_api_key: str = ""
+    flow_captcha_service_timeout_seconds: int = 120
     website_key: str = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV"
     page_action: str = "IMAGE_GENERATION"
     browser_proxy_enabled: bool = False  # 浏览器打码是否启用代理
