@@ -41,7 +41,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/TheSmallHanCat/flow2api.git
+git clone https://github.com/yubanmayi/flow2api.git
 cd flow2api
 
 # 启动服务
@@ -65,7 +65,7 @@ docker-compose -f docker-compose.warp.yml logs -f
 
 ```bash
 # 克隆项目
-git clone https://github.com/TheSmallHanCat/flow2api.git
+git clone https://github.com/yubanmayi/flow2api.git
 cd sora2api
 
 # 创建虚拟环境
