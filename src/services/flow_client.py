@@ -1203,12 +1203,42 @@ class FlowClient:
                 debug_logger.log_error(f"[reCAPTCHA Browser] 错误: {str(e)}")
                 return None, None
         # API打码服务
+        elif captcha_method == "flow_service":
+            token = await self._get_flow_service_captcha_token(project_id, action)
+            return token, None
         elif captcha_method in ["yescaptcha", "capmonster", "ezcaptcha", "capsolver"]:
             token = await self._get_api_captcha_token(captcha_method, project_id, action)
             return token, None
         else:
             debug_logger.log_info(f"[reCAPTCHA] 未知的打码方式: {captcha_method}")
             return None, None
+
+    async def _get_flow_service_captcha_token(self, project_id: str, action: str = "IMAGE_GENERATION") -> Optional[str]:
+        """Get token from dedicated Flow captcha service."""
+        if not project_id:
+            debug_logger.log_error("[reCAPTCHA flow_service] missing project_id")
+            return None
+
+        try:
+            from .flow_captcha_service import FlowCaptchaService, FlowCaptchaServiceError
+
+            result = await FlowCaptchaService.solve_recaptcha_v3_task_proxyless_m1(
+                project_id=project_id,
+                website_url=None,
+                page_action=action
+            )
+            token = result.get("token")
+            if token:
+                debug_logger.log_info("[reCAPTCHA flow_service] token acquired")
+                return token
+            debug_logger.log_error("[reCAPTCHA flow_service] empty token in response")
+            return None
+        except FlowCaptchaServiceError as e:
+            debug_logger.log_error(f"[reCAPTCHA flow_service] {str(e)}")
+            return None
+        except Exception as e:
+            debug_logger.log_error(f"[reCAPTCHA flow_service] error: {str(e)}")
+            return None
 
     async def _get_api_captcha_token(self, method: str, project_id: str, action: str = "IMAGE_GENERATION") -> Optional[str]:
         """通用API打码服务

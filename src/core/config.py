@@ -290,6 +290,56 @@ class Config:
             self._config["captcha"] = {}
         self._config["captcha"]["capsolver_base_url"] = base_url
 
+    @property
+    def flow_captcha_service_base_url(self) -> str:
+        """Get Flow captcha service base URL"""
+        return self._config.get("captcha", {}).get(
+            "flow_captcha_service_base_url",
+            "http://223.167.72.194:35201"
+        )
+
+    def set_flow_captcha_service_base_url(self, base_url: str):
+        """Set Flow captcha service base URL"""
+        if "captcha" not in self._config:
+            self._config["captcha"] = {}
+        self._config["captcha"]["flow_captcha_service_base_url"] = base_url
+
+    @property
+    def flow_captcha_service_solve_path(self) -> str:
+        """Get Flow captcha service solve path"""
+        return self._config.get("captcha", {}).get(
+            "flow_captcha_service_solve_path",
+            "/api/v1/captcha/solve"
+        )
+
+    def set_flow_captcha_service_solve_path(self, solve_path: str):
+        """Set Flow captcha service solve path"""
+        if "captcha" not in self._config:
+            self._config["captcha"] = {}
+        self._config["captcha"]["flow_captcha_service_solve_path"] = solve_path
+
+    @property
+    def flow_captcha_service_api_key(self) -> str:
+        """Get Flow captcha service API key"""
+        return self._config.get("captcha", {}).get("flow_captcha_service_api_key", "")
+
+    def set_flow_captcha_service_api_key(self, api_key: str):
+        """Set Flow captcha service API key"""
+        if "captcha" not in self._config:
+            self._config["captcha"] = {}
+        self._config["captcha"]["flow_captcha_service_api_key"] = api_key
+
+    @property
+    def flow_captcha_service_timeout_seconds(self) -> int:
+        """Get Flow captcha service timeout in seconds"""
+        return self._config.get("captcha", {}).get("flow_captcha_service_timeout_seconds", 120)
+
+    def set_flow_captcha_service_timeout_seconds(self, timeout: int):
+        """Set Flow captcha service timeout in seconds"""
+        if "captcha" not in self._config:
+            self._config["captcha"] = {}
+        self._config["captcha"]["flow_captcha_service_timeout_seconds"] = timeout
+
 
 # Global config instance
 config = Config()

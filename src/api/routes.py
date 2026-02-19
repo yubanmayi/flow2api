@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import List, Optional
+from pydantic import BaseModel
 import base64
 import re
 import json
@@ -23,6 +24,34 @@ def set_generation_handler(handler: GenerationHandler):
     """Set generation handler instance"""
     global generation_handler
     generation_handler = handler
+
+
+class FlowRecaptchaV3TaskProxylessM1Request(BaseModel):
+    """Request model for Flow browser captcha service"""
+    project_id: Optional[str] = None
+    website_url: Optional[str] = None
+    page_action: str = "IMAGE_GENERATION"
+
+
+def _captcha_error_response(
+    message: str,
+    *,
+    error_type: str = "upstream_error",
+    code: str = "captcha_upstream_error",
+    status_code: int = 500
+) -> JSONResponse:
+    """Create OpenAI-style captcha error response"""
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "message": message,
+                "type": error_type,
+                "param": "",
+                "code": code
+            }
+        }
+    )
 
 
 async def retrieve_image_data(url: str) -> Optional[bytes]:
@@ -82,6 +111,55 @@ async def list_models(api_key: str = Depends(verify_api_key_header)):
         "object": "list",
         "data": models
     }
+
+
+@router.post("/v1/captcha/flow-recaptcha-v3-task-proxyless-m1")
+async def flow_recaptcha_v3_task_proxyless_m1(
+    request: FlowRecaptchaV3TaskProxylessM1Request,
+    _api_key: str = Depends(verify_api_key_header)
+):
+    """Solve Flow reCAPTCHA V3 via dedicated browser provider service"""
+    if not request.project_id and not request.website_url:
+        return _captcha_error_response(
+            "project_id or website_url is required",
+            error_type="invalid_request_error",
+            code="invalid_request",
+            status_code=400
+        )
+
+    allowed_actions = {"IMAGE_GENERATION", "VIDEO_GENERATION"}
+    if request.page_action not in allowed_actions:
+        return _captcha_error_response(
+            "page_action must be IMAGE_GENERATION or VIDEO_GENERATION",
+            error_type="invalid_request_error",
+            code="invalid_request",
+            status_code=400
+        )
+
+    try:
+        from ..services.flow_captcha_service import FlowCaptchaService, FlowCaptchaServiceError
+
+        solution = await FlowCaptchaService.solve_recaptcha_v3_task_proxyless_m1(
+            project_id=request.project_id,
+            website_url=request.website_url,
+            page_action=request.page_action
+        )
+        return JSONResponse(content=solution)
+    except FlowCaptchaServiceError as e:
+        return _captcha_error_response(
+            f"flow captcha service error: {e}",
+            error_type=e.error_type,
+            code=e.error_code,
+            status_code=e.status_code
+        )
+    except Exception as e:
+        debug_logger.log_error(f"[FlowCaptchaAPI] unexpected error: {e}")
+        return _captcha_error_response(
+            f"flow captcha service error: {e}",
+            error_type="upstream_error",
+            code="captcha_upstream_error",
+            status_code=500
+        )
 
 
 @router.post("/v1/chat/completions")

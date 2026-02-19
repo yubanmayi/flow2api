@@ -37,6 +37,10 @@ timeout = 7200  # 缓存超时时间(秒), 默认2小时
 base_url = ""   # 缓存文件访问的基础URL, 留空则使用服务器地址
 
 [captcha]
-captcha_method = "browser"  # 打码方式: yescaptcha 或 browser
+captcha_method = "browser"  # 打码方式: yescaptcha/capmonster/ezcaptcha/capsolver/flow_service/browser/personal
 yescaptcha_api_key = ""  # YesCaptcha API密钥
 yescaptcha_base_url = "https://api.yescaptcha.com"
+flow_captcha_service_base_url = "http://223.167.72.194:35201"
+flow_captcha_service_solve_path = "/api/v1/captcha/solve"
+flow_captcha_service_api_key = ""
+flow_captcha_service_timeout_seconds = 120

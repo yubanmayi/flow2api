@@ -78,6 +78,10 @@ async def lifespan(app: FastAPI):
     config.set_ezcaptcha_base_url(captcha_config.ezcaptcha_base_url)
     config.set_capsolver_api_key(captcha_config.capsolver_api_key)
     config.set_capsolver_base_url(captcha_config.capsolver_base_url)
+    config.set_flow_captcha_service_base_url(captcha_config.flow_captcha_service_base_url)
+    config.set_flow_captcha_service_solve_path(captcha_config.flow_captcha_service_solve_path)
+    config.set_flow_captcha_service_api_key(captcha_config.flow_captcha_service_api_key)
+    config.set_flow_captcha_service_timeout_seconds(captcha_config.flow_captcha_service_timeout_seconds)
 
     # Initialize browser captcha service if needed
     browser_service = None
